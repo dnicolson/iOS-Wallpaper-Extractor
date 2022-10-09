@@ -1,10 +1,12 @@
 const path = require('path');
+const fs = require('fs');
 const { mkdtempSync, removeSync } = require('fs-extra');
 const sqlite3 = require('sqlite3').verbose();
 const convertCpbitmapToPng = require('cpbitmap-to-png');
 const yargs = require('yargs/yargs');
 const { hideBin } = require('yargs/helpers');
 const IRestore = require('irestore');
+const plist = require('plist');
 
 const extractWallpapers = (backupPath, useOriginalFilename) => {
     const db = new sqlite3.Database(`${backupPath}/Manifest.db`);
@@ -22,6 +24,11 @@ const extractWallpapers = (backupPath, useOriginalFilename) => {
             }
         });
     });
+}
+
+const getiOSVersion = (backupPath) => {
+    const infoPlist = plist.parse(fs.readFileSync(`${backupPath}/Info.plist`, 'utf8'));
+    return parseInt(infoPlist['Product Version'], 10);
 }
 
 const decryptBackup = async (backupPath) => {
@@ -55,7 +62,7 @@ const main = async () => {
     files && files.forEach(file => {
         const oldFile = path.join(tempBackupPath || backupPath, file.path);
         const newFile = path.join(outputPath, file.originalFilename.replace(/cpbitmap$/, 'png'));
-        convertCpbitmapToPng(oldFile, newFile);
+        convertCpbitmapToPng(oldFile, newFile, getiOSVersion(backupPath));
     });
 
     if (tempBackupPath) {
