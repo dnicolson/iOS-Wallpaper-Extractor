@@ -10,6 +10,7 @@ const plist = require('plist');
 
 const extractWallpapers = (backupPath, useOriginalFilename) => {
     const db = new sqlite3.Database(`${backupPath}/Manifest.db`);
+
     return new Promise((resolve, reject) => {
         const files = [];
         db.each(`SELECT * FROM Files WHERE "relativePath" LIKE "%Background.cpbitmap%"`, (_err, row) => {
@@ -42,8 +43,15 @@ const main = async () => {
     const argv = yargs(hideBin(process.argv)).argv;
     const backupPath = argv._[0];
     const outputPath = argv.o || '';
+    // console.log(backupPath, outputPath)
+    //TODO: remove yargs and just check first two params?
     let tempBackupPath;
-    let files;
+    let files = [];
+
+    if (!backupPath || !outputPath) {
+        console.log('Backup path and output path are required.')
+        return;
+    }
 
     try {
         files = await extractWallpapers(backupPath);
@@ -59,11 +67,11 @@ const main = async () => {
         }
     }
 
-    files && files.forEach(file => {
+    for (const file of files) {
         const oldFile = path.join(tempBackupPath || backupPath, file.path);
         const newFile = path.join(outputPath, file.originalFilename.replace(/cpbitmap$/, 'png'));
-        convertCpbitmapToPng(oldFile, newFile, getiOSVersion(backupPath));
-    });
+        await convertCpbitmapToPng(oldFile, newFile, getiOSVersion(backupPath));
+    }
 
     if (tempBackupPath) {
         removeSync(tempBackupPath);
