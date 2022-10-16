@@ -1,10 +1,7 @@
 const path = require('path');
-const fs = require('fs');
-const { mkdtempSync, removeSync } = require('fs-extra');
+const fs = require('fs-extra');
 const sqlite3 = require('sqlite3').verbose();
 const convertCpbitmapToPng = require('cpbitmap-to-png');
-const yargs = require('yargs/yargs');
-const { hideBin } = require('yargs/helpers');
 const IRestore = require('irestore');
 const plist = require('plist');
 
@@ -33,25 +30,23 @@ const getiOSVersion = (backupPath) => {
 }
 
 const decryptBackup = async (backupPath) => {
-    const tempBackupPath = mkdtempSync('irestore');
+    const tempBackupPath = fs.mkdtempSync('irestore');
     const iRestore = new IRestore(backupPath);
     await iRestore.restore('HomeDomain', tempBackupPath);
     return tempBackupPath;
 }
 
 const main = async () => {
-    const argv = yargs(hideBin(process.argv)).argv;
-    const backupPath = argv._[0];
-    const outputPath = argv.o || '';
-    // console.log(backupPath, outputPath)
-    //TODO: remove yargs and just check first two params?
+    if (process.argv.length < 4) {
+        console.log('Need at least two args: input filename and result filename [--ios-version iOS version]')
+        console.log(`Example: ${process.argv[0]} ${process.argv[1]} HomeBackground.cpbitmap HomeBackground.png [--ios-version 12]`)
+        return
+    }
+    const backupPath = process.argv[2]
+    const outputPath = process.argv[3]
+
     let tempBackupPath;
     let files = [];
-
-    if (!backupPath || !outputPath) {
-        console.log('Backup path and output path are required.')
-        return;
-    }
 
     try {
         files = await extractWallpapers(backupPath);
@@ -70,11 +65,14 @@ const main = async () => {
     for (const file of files) {
         const oldFile = path.join(tempBackupPath || backupPath, file.path);
         const newFile = path.join(outputPath, file.originalFilename.replace(/cpbitmap$/, 'png'));
-        await convertCpbitmapToPng(oldFile, newFile, getiOSVersion(backupPath));
+        const iOSVersion = getiOSVersion(backupPath);
+        console.log(`Converting ${oldFile} (iOS ${iOSVersion})`);
+        console.log(`Saving as  ${newFile}`);
+        await convertCpbitmapToPng(oldFile, newFile, iOSVersion);
     }
 
     if (tempBackupPath) {
-        removeSync(tempBackupPath);
+        fs.removeSync(tempBackupPath);
     }
 }
 

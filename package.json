@@ -1,10 +1,9 @@
 {
   "dependencies": {
-    "cpbitmap-to-png": "^1.0.1",
+    "cpbitmap-to-png": "github:hthetiot/cpbitmap-to-png#0480cfb",
     "fs-extra": "^10.1.0",
-    "irestore": "^0.1.0",
+    "irestore": "^0.2.0",
     "plist": "^3.0.6",
-    "sqlite3": "^5.1.1",
-    "yargs": "^17.5.1"
+    "sqlite3": "^5.1.1"
   }
 }
