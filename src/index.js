@@ -63,6 +63,7 @@ const main = async () => {
         }
     }
 
+    console.log('xxxx', files.length)
     for (const file of files) {
         const oldFile = path.join(tempBackupPath || backupPath, file.path);
         const newFile = path.join(outputPath, file.originalFilename.replace(/cpbitmap$/, 'png'));
