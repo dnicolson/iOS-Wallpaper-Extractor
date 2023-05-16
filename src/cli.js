@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const extractor = require('./extractor');
 
 if (process.argv.length != 4) {
