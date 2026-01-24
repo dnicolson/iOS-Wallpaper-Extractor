@@ -1,29 +1,23 @@
 const os = require('os');
 const path = require('path');
 const fs = require('fs-extra');
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const convertCpbitmapToPng = require('cpbitmap-to-png');
 const IRestore = require('irestore');
 const plist = require('simple-plist');
 
 const getWallpapers = (backupPath, useOriginalFilename = false) => {
-  return new Promise((resolve, reject) => {
-    const db = new sqlite3.Database(`${backupPath}/Manifest.db`, sqlite3.OPEN_READONLY, (err) => {
-      if (err) {
-        return reject(err.code);
-      }
+  const db = new Database(`${backupPath}/Manifest.db`, { readonly: true });
+  const stmt = db.prepare('SELECT * FROM Files WHERE "relativePath" LIKE \'%Background.cpbitmap%\'');
+  const rows = stmt.all();
 
-      const files = [];
-      db.each('SELECT * FROM Files WHERE "relativePath" LIKE "%Background.cpbitmap%"', (_err, row) => {
-        files.push({
-          originalFilename: row.relativePath.replace(/^Library\/SpringBoard\//, ''),
-          path: useOriginalFilename ? row.relativePath : `${row.fileID.slice(0,2)}/${row.fileID}`,
-        });
-      }, (err) => {
-        return err ? reject(err.code) : resolve(files);
-      });
-    });
-  });
+  const files = rows.map(row => ({
+    originalFilename: row.relativePath.replace(/^Library\/SpringBoard\//, ''),
+    path: useOriginalFilename ? row.relativePath : `${row.fileID.slice(0,2)}/${row.fileID}`,
+  }));
+
+  db.close();
+  return files;
 };
 
 const getiOSVersion = (backupPath) => {
@@ -69,27 +63,25 @@ const extractor = async (backupPath, outputPath, password = null, logger) => {
       return Promise.reject(err);
     }
     try {
-      files = await getWallpapers(tempBackupPath, true);
+      files = getWallpapers(tempBackupPath, true);
     } catch (_err) {
       return Promise.reject('Manifest.db file is unable to be decrypted.');
     }
   } else {
     try {
-      files = await getWallpapers(backupPath);
+      files = getWallpapers(backupPath);
     } catch (err) {
-      if (err === 'SQLITE_CANTOPEN') {
-        return Promise.reject('Cannot open Manifest.db.');
-      }
-
-      if (err === 'SQLITE_NOTADB') {
+      if (err.code === 'SQLITE_NOTADB') {
         logger('Manifest.db appears to be encrypted.\n\nEnter backup password:');
         [tempBackupPath] = await decryptBackup(backupPath);
 
         try {
-          files = await getWallpapers(tempBackupPath, true);
+          files = getWallpapers(tempBackupPath, true);
         } catch (_err) {
           return Promise.reject('Manifest.db file is unable to be decrypted.');
         }
+      } else {
+        return Promise.reject('Cannot open Manifest.db.');
       }
     }
   }
