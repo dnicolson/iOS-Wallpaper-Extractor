@@ -1,5 +1,5 @@
 const extractor = require('../src/extractor');
-const fs = require('fs-extra');
+const fs = require('fs');
 const path = require('path');
 const convertCpbitmapToPng = require('cpbitmap-to-png');
 const IRestore = require('irestore');

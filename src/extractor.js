@@ -1,6 +1,6 @@
 const os = require('os');
 const path = require('path');
-const fs = require('fs-extra');
+const fs = require('fs');
 const Database = require('better-sqlite3');
 const convertCpbitmapToPng = require('cpbitmap-to-png');
 const IRestore = require('irestore');
@@ -95,7 +95,7 @@ const extractor = async (backupPath, outputPath, password = null, logger) => {
   }
 
   if (tempBackupPath) {
-    fs.removeSync(tempBackupPath);
+    fs.rmSync(tempBackupPath, { recursive: true, force: true });
   }
 
   return output;
