@@ -4,6 +4,8 @@ This tool extracts iOS wallpaper images from a backup using the `Manifest.db` da
 
 iOS backups are located in `~/Library/Application Support/MobileSync/Backup/`.
 
+On macOS, you may need to grant your terminal app Full Disk Access to read backups from that folder.
+
 ## Usage
 
 ```
