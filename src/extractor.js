@@ -6,15 +6,34 @@ const convertCpbitmapToPng = require('cpbitmap-to-png');
 const IRestore = require('irestore');
 const plist = require('simple-plist');
 
+const WALLPAPER_DOMAINS = ['AppDomain-com.apple.PosterBoard', 'HomeDomain'];
+const POSTERBOARD_PATTERN = /output\.layerStack\/(.+\.HEIC)$/i;
+
 const getWallpapers = (backupPath, useOriginalFilename = false) => {
+  let files = [];
   const db = new Database(`${backupPath}/Manifest.db`, { readonly: true });
+
   const stmt = db.prepare('SELECT * FROM Files WHERE "relativePath" LIKE \'%Background.cpbitmap%\'');
   const rows = stmt.all();
-
-  const files = rows.map(row => ({
+  files = rows.map(row => ({
+    domain: row.domain,
     originalFilename: row.relativePath.replace(/^Library\/SpringBoard\//, ''),
     path: useOriginalFilename ? row.relativePath : `${row.fileID.slice(0,2)}/${row.fileID}`,
   }));
+
+  const stmtNew = db.prepare(`
+    SELECT domain, relativePath, fileID FROM Files
+    WHERE "domain" = 'AppDomain-com.apple.PosterBoard'
+      AND "relativePath" LIKE '%output.layerStack%'
+  `);
+  const rowsNew = stmtNew.all();
+  files.push(...rowsNew
+    .filter(row => row.relativePath.match(POSTERBOARD_PATTERN))
+    .map(row => ({
+      domain: row.domain,
+      originalFilename: row.relativePath.replace(/.*output.layerStack\//, ''),
+      path: useOriginalFilename ? row.relativePath : `${row.fileID.slice(0,2)}/${row.fileID}`,
+    })));
 
   db.close();
   return files;
@@ -23,26 +42,23 @@ const getWallpapers = (backupPath, useOriginalFilename = false) => {
 const getiOSVersion = (backupPath) => {
   const infoPlist = plist.readFileSync(`${backupPath}/Info.plist`, 'utf8');
   return parseInt(infoPlist['Product Version'], 10);
-}
+};
 
-const decryptBackup = async (backupPath, password) => {
-  let output;
+const decryptBackup = async (backupPath, password, domains = WALLPAPER_DOMAINS) => {
+  let output = '';
   const tempBackupPath = fs.mkdtempSync(path.join(os.tmpdir(), 'irestore'));
+  const restoreDomain = domains.join(',');
 
   if (password) {
-    try {
-      const iRestore = new IRestore(backupPath, password)
-      output = await iRestore.restore('HomeDomain', tempBackupPath);
-    } catch (err) {
-      return Promise.reject(err);
-    }
+    const iRestore = new IRestore(backupPath, password);
+    output += await iRestore.restore(restoreDomain, tempBackupPath);
   } else {
     const iRestore = new IRestore(backupPath);
-    await iRestore.restore('HomeDomain', tempBackupPath);
+    await iRestore.restore(restoreDomain, tempBackupPath);
   }
 
   return [tempBackupPath, output];
-}
+};
 
 const extractor = async (backupPath, outputPath, password = null, logger) => {
   let tempBackupPath;
@@ -52,20 +68,21 @@ const extractor = async (backupPath, outputPath, password = null, logger) => {
   if (!logger) {
     logger = (lines) => {
       output += lines + '\n';
-    }
+    };
+  }
+
+  try {
+    fs.accessSync(`${backupPath}/Manifest.db`, fs.constants.R_OK);
+  } catch (_err) {
+    return Promise.reject('Cannot read Manifest.db. Check file permissions or Full Disk Access.');
   }
 
   if (password) {
     try {
-      [tempBackupPath, out] = await decryptBackup(backupPath, password);
-      output += out;
+      [tempBackupPath, output] = await decryptBackup(backupPath, password);
+      files = getWallpapers(tempBackupPath, true);
     } catch (err) {
       return Promise.reject(err);
-    }
-    try {
-      files = getWallpapers(tempBackupPath, true);
-    } catch (_err) {
-      return Promise.reject('Manifest.db file is unable to be decrypted.');
     }
   } else {
     try {
@@ -73,12 +90,12 @@ const extractor = async (backupPath, outputPath, password = null, logger) => {
     } catch (err) {
       if (err.code === 'SQLITE_NOTADB') {
         logger('Manifest.db appears to be encrypted.\n\nEnter backup password:');
-        [tempBackupPath] = await decryptBackup(backupPath);
 
         try {
+          [tempBackupPath] = await decryptBackup(backupPath);
           files = getWallpapers(tempBackupPath, true);
-        } catch (_err) {
-          return Promise.reject('Manifest.db file is unable to be decrypted.');
+        } catch (err) {
+          return Promise.reject('Manifest.db file is unable to be decrypted: ' + err.message);
         }
       } else {
         return Promise.reject('Cannot open Manifest.db.');
@@ -88,10 +105,17 @@ const extractor = async (backupPath, outputPath, password = null, logger) => {
 
   for (const file of files) {
     const oldFile = path.join(tempBackupPath || backupPath, file.path);
-    const newFile = path.join(outputPath, file.originalFilename.replace(/cpbitmap$/, 'png'));
-    const iOSVersion = getiOSVersion(backupPath);
-    logger(`Saving iOS ${iOSVersion} wallpaper as ${newFile}`);
-    await convertCpbitmapToPng(oldFile, newFile, iOSVersion);
+
+    if (file.originalFilename.match(/cpbitmap$/)) {
+      const newFile = path.join(outputPath, file.originalFilename.replace(/cpbitmap$/, 'png'));
+      const iOSVersion = getiOSVersion(backupPath);
+      logger(`Saving iOS ${iOSVersion} wallpaper as ${newFile}`);
+      await convertCpbitmapToPng(oldFile, newFile, iOSVersion);
+    } else {
+      const newFile = path.join(outputPath, file.originalFilename);
+      logger(`Saving wallpaper as ${newFile}`);
+      fs.copyFileSync(oldFile, newFile);
+    }
   }
 
   if (tempBackupPath) {
@@ -99,6 +123,6 @@ const extractor = async (backupPath, outputPath, password = null, logger) => {
   }
 
   return output;
-}
+};
 
 module.exports = extractor;

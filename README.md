@@ -1,6 +1,6 @@
 # iOS Wallpaper Extractor
 
-This tool extracts iOS wallpaper images from a backup using the `Manifest.db` database, images are converted from the cpbitmap format using [cpbitmap-to-png](https://github.com/hthetiot/cpbitmap-to-png). Encrypted backups are first decrypted with [irestore](https://github.com/dnicolson/node-irestore).
+This tool extracts iOS wallpaper images from a backup using the `Manifest.db` database. Legacy `cpbitmap` wallpapers are converted to PNG using [cpbitmap-to-png](https://github.com/hthetiot/cpbitmap-to-png), newer PosterBoard wallpapers are copied from `output.layerStack`, and encrypted backups are decrypted with [irestore](https://github.com/dnicolson/node-irestore).
 
 iOS backups are located in `~/Library/Application Support/MobileSync/Backup/`.
 
