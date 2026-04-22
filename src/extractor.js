@@ -91,10 +91,10 @@ const extractor = async (backupPath, outputPath, password = null, logger) => {
           [tempBackupPath] = await decryptBackup(backupPath);
           files = getWallpapers(tempBackupPath, true);
         } catch (err) {
-          return Promise.reject('Manifest.db file is unable to be decrypted: ' + err.message);
+          return Promise.reject('Manifest.db file is unable to be decrypted:\n' + err.message);
         }
       } else {
-        return Promise.reject('Cannot open Manifest.db.');
+        return Promise.reject('Cannot open Manifest.db:\n' + err.message);
       }
     }
   }

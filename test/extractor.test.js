@@ -53,7 +53,7 @@ describe('iOS Wallpaper Extractor', () => {
 
     IRestore.mockImplementation(() => ({ restore }));
 
-    await expect(extractor(backupPath, outputPath)).rejects.toEqual('Manifest.db file is unable to be decrypted: decrypt failed');
+    await expect(extractor(backupPath, outputPath)).rejects.toEqual('Manifest.db file is unable to be decrypted:\ndecrypt failed');
     expect(IRestore).toHaveBeenCalledWith(backupPath);
     expect(restore).toHaveBeenCalledWith('AppDomain-com.apple.PosterBoard,HomeDomain', expect.any(String));
   });
