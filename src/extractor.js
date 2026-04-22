@@ -31,6 +31,14 @@ const getWallpapers = (backupPath, useOriginalFilename = false) => {
       path: useOriginalFilename ? row.relativePath : `${row.fileID.slice(0,2)}/${row.fileID}`,
     })));
 
+  const stmtHome = db.prepare('SELECT * FROM Files WHERE "relativePath" LIKE \'%com.apple.Home/Wallpapers%\' AND flags = 1');
+  const rowsHome = stmtHome.all();
+  files.push(...rowsHome.map(row => ({
+    domain: row.domain,
+    originalFilename: row.relativePath.replace(/^Library\/Application Support\/com\.apple\.Home\/Wallpapers\//, ''),
+    path: useOriginalFilename ? row.relativePath : `${row.fileID.slice(0,2)}/${row.fileID}`,
+  })));
+
   db.close();
   return files;
 };
