@@ -21,11 +21,7 @@ const getWallpapers = (backupPath, useOriginalFilename = false) => {
     path: useOriginalFilename ? row.relativePath : `${row.fileID.slice(0,2)}/${row.fileID}`,
   }));
 
-  const stmtNew = db.prepare(`
-    SELECT domain, relativePath, fileID FROM Files
-    WHERE "domain" = 'AppDomain-com.apple.PosterBoard'
-      AND "relativePath" LIKE '%output.layerStack%'
-  `);
+  const stmtNew = db.prepare(`SELECT * FROM Files WHERE "domain" = 'AppDomain-com.apple.PosterBoard' AND "relativePath" LIKE '%output.layerStack%'`);
   const rowsNew = stmtNew.all();
   files.push(...rowsNew
     .filter(row => row.relativePath.match(POSTERBOARD_PATTERN))
