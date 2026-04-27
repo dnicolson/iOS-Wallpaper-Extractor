@@ -109,14 +109,27 @@ const extractor = async (backupPath, outputPath, password = null, logger) => {
 
   for (const file of files) {
     const oldFile = path.join(tempBackupPath || backupPath, file.path);
+    
+    const getUniqueFilename = (filePath) => {
+      let uniquePath = filePath;
+      let counter = 1;
+      while (fs.existsSync(uniquePath)) {
+        const ext = path.extname(filePath);
+        const baseName = path.basename(filePath, ext);
+        const dir = path.dirname(filePath);
+        uniquePath = path.join(dir, `${baseName} (${counter})${ext}`);
+        counter++;
+      }
+      return uniquePath;
+    };
 
     if (file.originalFilename.match(/cpbitmap$/)) {
-      const newFile = path.join(outputPath, file.originalFilename.replace(/cpbitmap$/, 'png'));
+      const newFile = getUniqueFilename(path.join(outputPath, file.originalFilename.replace(/cpbitmap$/, 'png')));
       const iOSVersion = getiOSVersion(backupPath);
       logger(`Saving iOS ${iOSVersion} wallpaper as ${newFile}`);
       await convertCpbitmapToPng(oldFile, newFile, iOSVersion);
     } else {
-      const newFile = path.join(outputPath, file.originalFilename);
+      const newFile = getUniqueFilename(path.join(outputPath, file.originalFilename));
       logger(`Saving wallpaper as ${newFile}`);
       fs.copyFileSync(oldFile, newFile);
     }
