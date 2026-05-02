@@ -7,7 +7,6 @@ const IRestore = require('irestore');
 const plist = require('simple-plist');
 
 const WALLPAPER_DOMAINS = ['AppDomain-com.apple.PosterBoard', 'HomeDomain'];
-const POSTERBOARD_PATTERN = /output\.layerStack\/(.+\.HEIC)$/i;
 
 const getWallpapers = (backupPath, useOriginalFilename = false) => {
   let files = [];
@@ -21,15 +20,13 @@ const getWallpapers = (backupPath, useOriginalFilename = false) => {
     path: useOriginalFilename ? row.relativePath : `${row.fileID.slice(0,2)}/${row.fileID}`,
   }));
 
-  const stmtNew = db.prepare(`SELECT * FROM Files WHERE "domain" = 'AppDomain-com.apple.PosterBoard' AND "relativePath" LIKE '%output.layerStack%'`);
+  const stmtNew = db.prepare(`SELECT * FROM Files WHERE "domain" = 'AppDomain-com.apple.PosterBoard' AND "relativePath" LIKE '%output.layerStack%' AND flags = 1`);
   const rowsNew = stmtNew.all();
-  files.push(...rowsNew
-    .filter(row => row.relativePath.match(POSTERBOARD_PATTERN))
-    .map(row => ({
-      domain: row.domain,
-      originalFilename: row.relativePath.replace(/.*output.layerStack\//, ''),
-      path: useOriginalFilename ? row.relativePath : `${row.fileID.slice(0,2)}/${row.fileID}`,
-    })));
+  files.push(...rowsNew.map(row => ({
+    domain: row.domain,
+    originalFilename: row.relativePath.replace(/.*\/([^\/]+)\/(?=output\.layerStack)/, '$1-'),
+    path: useOriginalFilename ? row.relativePath : `${row.fileID.slice(0,2)}/${row.fileID}`,
+  })));
 
   const stmtHome = db.prepare('SELECT * FROM Files WHERE "relativePath" LIKE \'%com.apple.Home/Wallpapers%\' AND flags = 1');
   const rowsHome = stmtHome.all();
@@ -109,28 +106,16 @@ const extractor = async (backupPath, outputPath, password = null, logger) => {
 
   for (const file of files) {
     const oldFile = path.join(tempBackupPath || backupPath, file.path);
-    
-    const getUniqueFilename = (filePath) => {
-      let uniquePath = filePath;
-      let counter = 1;
-      while (fs.existsSync(uniquePath)) {
-        const ext = path.extname(filePath);
-        const baseName = path.basename(filePath, ext);
-        const dir = path.dirname(filePath);
-        uniquePath = path.join(dir, `${baseName} (${counter})${ext}`);
-        counter++;
-      }
-      return uniquePath;
-    };
 
     if (file.originalFilename.match(/cpbitmap$/)) {
-      const newFile = getUniqueFilename(path.join(outputPath, file.originalFilename.replace(/cpbitmap$/, 'png')));
+      const newFile = path.join(outputPath, file.originalFilename.replace(/cpbitmap$/, 'png'));
       const iOSVersion = getiOSVersion(backupPath);
       logger(`Saving iOS ${iOSVersion} wallpaper as ${newFile}`);
       await convertCpbitmapToPng(oldFile, newFile, iOSVersion);
     } else {
-      const newFile = getUniqueFilename(path.join(outputPath, file.originalFilename));
+      const newFile = path.join(outputPath, file.originalFilename);
       logger(`Saving wallpaper as ${newFile}`);
+      fs.mkdirSync(path.dirname(newFile), { recursive: true });
       fs.copyFileSync(oldFile, newFile);
     }
   }
